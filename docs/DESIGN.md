@@ -1,6 +1,19 @@
 # hy-status: design proposal
 
-**Status:** proposal, not built yet. Decisions marked **[DECIDE]** need a call before the build starts.
+**Status:** agreed. v1 is built and piloted on Revelion. Names like MCD, OCG and Sam in the examples below are illustrations only; the real list is `projects.yaml`.
+
+## 0. Decisions (3 Nov 2026)
+
+| # | Topic | Decision |
+|---|---|---|
+| 1 | Asana | Later (v2). Not read in v1 |
+| 2 | STATUS.md location | Repo root when the section has a repo. Drive-only sections keep theirs in this repo at `projects/<section-id>/STATUS.md` |
+| 3 | Stages | The lifecycle list (§3.4). Paused and Closed are a separate `status` field, not stages |
+| 4 | Visibility | One shared read-only account. A section can be read only if it is in `projects.yaml`. No clients excluded so far |
+| 5 | Slack | No weekly post for now. `--all` with stale warnings covers it. Revisit after the pilot |
+| 6 | Pilot | Revelion: one section, `revelion-website` (repo `Hello-yellow-fornya/revelion-site`) |
+
+Other agreed points: dates print as `2 Nov 2026`; `last_action` starts lowercase; Drive folders are stored by ID, with the path for display only; the 14-day warning reads `⚠ stale`.
 
 ## 1. What it does
 
@@ -8,7 +21,7 @@ Anyone at Hello Yellow asks "where is MCD at?" and gets back one line per workst
 
 ```
 MCD Paid Social – main repo is hello-yellow-fornya/mcd-paid-social, last updated yesterday (2 Nov 2026), last change: built Q4 creative variants and shared for internal review
-MCD Reporting – main folder is Clients/McDonald's/Reporting, last updated 3 weeks ago (13 Oct 2026), last change: delivered September performance report ⚠ no update for 21 days
+MCD Reporting – main folder is Clients/McDonald's/Reporting, last updated 3 weeks ago (13 Oct 2026), last change: delivered September performance report ⚠ stale
 ```
 
 "Tell me more about MCD" (or `--detail`) gives the full card for each workstream: stage, next step, blockers, outputs and recent activity.
@@ -23,7 +36,7 @@ The tool only reports what is written down or visible in a source. **Every line 
 | **`projects.yaml`** | Section names, main repo or folder, owner | Fixed facts about where each workstream lives |
 | **GitHub** | Live check: last commit, open PRs | Raises a warning when STATUS.md is behind the repo |
 | **Google Drive** | Live check: most recently modified files in the folder | Raises a warning when STATUS.md is behind the folder |
-| **Asana** (optional, v2) | Cross-check "next": open tasks due soonest | Only useful if the team keeps it current **[DECIDE]** |
+| **Asana** (v2) | Cross-check "next": open tasks due soonest | Deferred (decision 1) |
 
 The live sources never change a line's content. They only add ⚠ warnings to it.
 
@@ -42,29 +55,28 @@ A **section** is one workstream for a client, e.g. MCD Paid Social, MCD Reportin
   sections:
     - id: mcd-paid-social
       label: MCD Paid Social             # printed at the start of the line
-      main_repo: hello-yellow-fornya/mcd-paid-social
-      status_file: { github: hello-yellow-fornya/mcd-paid-social/STATUS.md }
-      drive_folders: [1XyZ...]           # optional, live-check only
+      main_repo: hello-yellow-fornya/mcd-paid-social   # STATUS.md at this repo's root
+      drive_folders: [1XyZ...]           # optional, by ID, live-check only
       owner: <name>
     - id: mcd-reporting
       label: MCD Reporting
       main_folder:                       # used when there is no main_repo
-        path: Clients/McDonald's/Reporting   # printed as-is, so no API call is needed to render
-        id: 1AbC...
-      status_file: { drive_file_id: 1DeF... }
-      owner: <name>
+        id: 1AbC...                      # authoritative: every Drive lookup uses the ID
+        path: Clients/McDonald's/Reporting   # display only: printed in the line, never used for lookups
+      owner: <name>                      # STATUS.md at projects/mcd-reporting/STATUS.md in this repo
 ```
 
-Each section has exactly one of `main_repo` or `main_folder`. The linter enforces this.
+Each section has exactly one of `main_repo` or `main_folder`, and `main_folder` needs both `id` and `path`. The registry loader enforces both. Where STATUS.md lives follows from those fields, so there's no `status_file` field.
 
 ### 3.3 STATUS.md (one per section)
 
-It lives **next to the work**: at the repo root, or as `STATUS.md` in the section's main Drive folder. Whoever does the work (a person or a chat) updates it in the same place. **[DECIDE: alternatively all STATUS files live centrally in this repo under `projects/<client>/<section-id>/STATUS.md`.]**
+It lives at the **repo root** when the section has a `main_repo`. Drive-only sections keep theirs in **this repo** at `projects/<section-id>/STATUS.md` (decision 2). The full rules are in `docs/STATUS-FORMAT.md`.
 
 ```markdown
 ---
 section: mcd-paid-social       # must match the id in projects.yaml
 stage: Build                   # one of the fixed stages (§3.4)
+status: active                 # active | paused | closed
 updated: 2026-11-02            # date of the last real action, YYYY-MM-DD
 last_action: built Q4 creative variants and shared for internal review
 next_step: Client review of Q4 creatives, due 2026-11-06 (owner: Sam)
@@ -97,9 +109,11 @@ blockers: none
 
 The linter warns when `last_action` is over 12 words, ends with a full stop, starts with a capital (except acronyms), or contains a date.
 
-### 3.4 Stages (fixed list) **[DECIDE]**
+### 3.4 Stages and status
 
-`Pitch` → `Onboarding` → `Discovery` → `Build` → `Review` → `Live` → `Optimise` → `Reporting` → `Paused` → `Closed`
+`stage` (lifecycle): `Pitch` → `Onboarding` → `Discovery` → `Build` → `Review` → `Live` → `Optimise` → `Reporting`
+
+`status`: `active` | `paused` | `closed`. Paused and closed sections keep their last stage and never show `⚠ stale`.
 
 ## 4. How it's triggered
 
@@ -113,7 +127,7 @@ The linter warns when `last_action` is over 12 words, ends with a full stop, sta
 
 - **Ask Claude** (claude.ai, Claude Code, Slack): the `hy-status` skill maps the question to a CLI call as in the table, runs it and returns stdout **verbatim**. It doesn't summarise, reword or add anything. The skill also covers writing STATUS.md after real work, following the §3.3 rules.
 - **CLI:** Python, using read-only GitHub and Drive credentials.
-- **Optional later:** a Monday `--all` post to Slack. **[DECIDE]**
+- **Slack:** no weekly post for now (decision 5).
 
 ## 5. Output
 
@@ -141,14 +155,14 @@ Warnings come in a fixed order, joined with `; ` after a single ⚠:
 | `⚠ STATUS.md unreadable: <field> missing` | header doesn't parse, or a required field is missing |
 | `⚠ repo has N commits since STATUS.md (latest <relative>)` | commits on the default branch after `updated` |
 | `⚠ Drive folder changed since STATUS.md (latest <relative>)` | files modified after `updated` |
-| `⚠ no update for N days` | `updated` is 14 or more days old and no live activity was found. Not shown for `Paused` or `Closed` |
+| `⚠ stale` | `updated` is 14 or more days old and no live activity was found. Not shown when `status` is `paused` or `closed` |
 | `⚠ <repo\|Drive> not accessible` | the tool's credentials can't reach the source. The rest of the line still prints |
 
 Examples:
 
 ```
 MCD Paid Social – main repo is hello-yellow-fornya/mcd-paid-social, last updated yesterday (2 Nov 2026), last change: built Q4 creative variants and shared for internal review
-MCD Reporting – main folder is Clients/McDonald's/Reporting, last updated 3 weeks ago (13 Oct 2026), last change: delivered September performance report ⚠ no update for 21 days
+MCD Reporting – main folder is Clients/McDonald's/Reporting, last updated 3 weeks ago (13 Oct 2026), last change: delivered September performance report ⚠ stale
 OCG ONE Prototype – main repo is hello-yellow-fornya/ocg-one, last updated 4 days ago (30 Oct 2026), last change: added campaign builder screens ⚠ repo has 6 commits since STATUS.md (latest today)
 OCG Paid Search – main folder is Clients/ODEON/Paid Search ⚠ no STATUS.md found
 ```
@@ -182,7 +196,7 @@ Sources: STATUS.md @ a1b2c3d · GitHub · Drive · generated 2026-11-03 10:14
 
 ## 6. Access and permissions
 
-"Anyone can read it, even if it isn't their client" means the tool reads with **one shared, read-only service identity** (a GitHub App or token, and a Google service account added as Viewer on the folders), not each person's own access. **[DECIDE: is team-wide visibility of every client OK? Should some be excluded?]**
+"Anyone can read it, even if it isn't their client" means the tool reads with **one shared, read-only service identity** (a GitHub App or token, and a Google service account added as Viewer on the folders), not each person's own access. A section can be read only if it is listed in `projects.yaml`: queries resolve against the registry alone, and nothing else is searched (decision 4).
 
 ## 7. Build plan (after sign-off)
 

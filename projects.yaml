@@ -1,0 +1,16 @@
+# Registry of client workstreams ("sections"). Only sections listed here can be read by hy-status.
+#
+# Each section has exactly one of:
+#   main_repo: owner/repo           -> STATUS.md lives at that repo's root
+#   main_folder: {id, path}         -> STATUS.md lives in this repo at projects/<section-id>/STATUS.md
+# Drive folders are always looked up by ID. `path` is only printed in the line.
+# Format and rules: docs/STATUS-FORMAT.md
+
+- client: REV
+  name: Revelion
+  aliases: [revelion, revelion.ai]
+  sections:
+    - id: revelion-website
+      label: Revelion Website
+      main_repo: Hello-yellow-fornya/revelion-site
+      owner: null

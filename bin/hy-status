@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Run hy-status from a clone without installing it.
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHONPATH="$here${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m hy_status "$@"
